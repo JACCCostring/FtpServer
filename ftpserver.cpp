@@ -1,5 +1,4 @@
 #include "ftpserver.h"
-#include "diroperation.h"
 
 ftpServer::ftpServer(QObject *parent) : QObject(parent)
 {
@@ -7,6 +6,12 @@ ftpServer::ftpServer(QObject *parent) : QObject(parent)
     socketServer = new QTcpServer(this);
     //connecting for new connections
     connect(socketServer, &QTcpServer::newConnection, this, &ftpServer::onNewConnection);
+}
+
+ftpServer::~ftpServer()
+{
+    if(! socketServer) socketServer->deleteLater();
+    if(! dSingleton) free(dSingleton); //freeing singleton instance
 }
 
 void ftpServer::startFtpServer(qint16 port)
@@ -30,26 +35,28 @@ void ftpServer::managedDataClient(QTcpSocket *newSocket, const QByteArray &cmdSh
     //establishing handshake with client
     socketPost->write(cmdShake);
     //if file exist then is true other wise false
-    bool fileExist = DirOperation::existFile(QDir::currentPath()+"/Download/", DirOperation::getRequestedFileName());
+    bool fileExist = dSingleton->existFile(QDir::currentPath()+"/Download/", dSingleton->getRequestedFileName());
     //connecting signal when new data available
     connect(socketPost, &QTcpSocket::readyRead, this, [=](){
         //when new data available
         //if file does not exist in directory then save it
         if(! fileExist){
-        //save to file
-        DirOperation::saveFile(socketPost->readAll(), DirOperation::getRequestedFileName());
-        qDebug()<<"file already exist !";
+        //retrieve data in QByteArray because later socket will be delete it
+            QByteArray _data = socketPost->readAll();
+            //save data to file
+        dSingleton->saveFile(_data, dSingleton->getRequestedFileName());
         }
         //if file does exist then notify client
         else { socketPost->write("200:exist");
             //disconnecting from client to avoid loop sending bytes
+            qDebug()<<"file already exist !";
             socketPost->disconnectFromHost();
         }
     });
     //sending new uploaded files to client
     qDebug()<<"listing new files";
     //obtaining list of files in directory
-    QStringList responseList = DirOperation::listDirectory();
+    QStringList responseList = dSingleton->listDirectory();
     //looping throug all files
     foreach(const QString &response, responseList){
         newSocket->write("\n");
@@ -76,7 +83,7 @@ void ftpServer::onNewConnection()
 void ftpServer::onReadyRead()
 {
     //getting reference from QObject caller
-    QTcpSocket *newSocket = qobject_cast<QTcpSocket*>(sender());
+    QTcpSocket *newSocket = qobject_cast<QTcpSocket *>( sender() );
     //creating independent socket for POST
     //QTcpSocket *socketPost = socketServer->nextPendingConnection();
     //writing standard HTTP session Protocol to socket
@@ -86,10 +93,10 @@ void ftpServer::onReadyRead()
     QString request = dataFile;
     //qDebug()<<"content size: "<<request.size();
     //if route exist then
-    if(DirOperation::getRoute(request, "dir")){
+    if(dSingleton->getRoute(request, "dir")){
         qDebug()<<"listing files";
         //obtaining list of files in directory
-        QStringList responseList = DirOperation::listDirectory();
+        QStringList responseList = dSingleton->listDirectory();
         //looping throug all files
         foreach(const QString &response, responseList){
             newSocket->write("\n");
@@ -98,16 +105,16 @@ void ftpServer::onReadyRead()
         //clear responseList
         responseList.clear();
     } //end of 1st route
-    else if(DirOperation::getRoute(request, ".")){
+    else if(dSingleton->getRoute(request, ".")){ //download file.extansion to client
         //download file
         qDebug()<<"downloading files ...";
         //retrieving binary data
-        QByteArray file = DirOperation::downloadFileToClient(DirOperation::getRequestedFileName());
+        QByteArray file = dSingleton->downloadFileToClient(dSingleton->getRequestedFileName());
         //sending bynary data to socket
         newSocket->write(file);
     }
     //another route
-    else if(DirOperation::getRoute(request, "upload")){
+    else if(dSingleton->getRoute(request, "upload")){ //upload files to server
         qDebug()<<"uploading files";
         //preparing handshake and receiving data from client
          managedDataClient(newSocket, "200:file", 2022);

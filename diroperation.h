@@ -7,23 +7,26 @@
 class DirOperation
 {
 public:
-    DirOperation();
     //list all files in current path... with defualt parameter
-    static QStringList listDirectory(QString path = QDir::currentPath() + "/Download");
+    QStringList listDirectory(QString path = QDir::currentPath() + "/Download");
     //getters
-    static QString getCurrentPath();
-    static QString getRequestedFileName();
-    static bool getRoute(const QString &, const QString &);
+    QString getCurrentPath();
+    QString getRequestedFileName();
+    bool getRoute(const QString &, const QString &);
     //static getter download method
-    static QByteArray downloadFileToClient(const QString &);
-    static void saveFile(const QByteArray &, const QString &);
+    QByteArray downloadFileToClient(const QString &);
+    void saveFile(const QByteArray &, const QString &);
     //method to verify file does not exist in directory before saving to diskt
-    static bool existFile(QString, const QString &);
+    bool existFile(QString, const QString &);
+    //single instance access method
+    static DirOperation *getInstance();
 
 private:
-    static QStringList listDir;
-    static QString auxPath;
-    static QString requestedFileName;
+     static DirOperation *_instance; //for single instance access
+     DirOperation(); //default constructor to avoid obj instance
+     QStringList listDir;
+     QString auxPath;
+     QString requestedFileName;
 };
 
 #endif // DIROPERATION_H

@@ -1,11 +1,7 @@
 #include "diroperation.h"
 #include <QDebug>
-#include <QEventLoop>
-//initializing static class members
-QStringList DirOperation::listDir {};
-QString DirOperation::auxPath {};
-QString DirOperation::requestedFileName {};
-//QFile *DirOperation::file = nullptr;
+//initializing singleton instance
+DirOperation *DirOperation::_instance;
 
 DirOperation::DirOperation() {}
 
@@ -32,6 +28,12 @@ bool DirOperation::existFile(QString path, const QString &name)
     return dir.exists(name);
 }
 
+DirOperation *DirOperation::getInstance()
+{
+    if(! _instance) _instance = new DirOperation;
+    return _instance;
+}
+
 QString DirOperation::getCurrentPath()
 {
     return auxPath;
@@ -45,16 +47,15 @@ QString DirOperation::getRequestedFileName()
 bool DirOperation::getRoute(const QString &route, const QString &characters)
 {
     QStringList listRoutes = route.split("/"); //split all containing /
-    //retrieving the important data after GET/POST or DELETE
-     QString currentRoute = listRoutes[1];
-     //retrieving the filename
-     QStringList absFileName = listRoutes[2].split(" ");
-     //saving filaname
-     requestedFileName = absFileName[0];
+    //retrieving the important data after GET command
+     QString currentRoute = listRoutes[1]; //dir / upload / .extension
+     //spliting the filename
+     QStringList absFileName = listRoutes[2].split(" "); //split by space to obtain file name
+     //retrieving filaname
+     requestedFileName = absFileName[0]; //only 0 index wanted, 1 index is HTTP/1.1
     //if string start with 'specific characters' then
     if(currentRoute.startsWith(characters)){
-        //return true meaing valid route found
-        return true;
+        return true;        //return true meaing valid route found
     }
     else if(currentRoute.contains(characters)){
         //splitting by spaces to avoid HTTP at the end of line
@@ -91,7 +92,6 @@ void DirOperation::saveFile(const QByteArray &data, const QString &fileName)
     if(! file.open(QIODevice::WriteOnly | QIODevice::Append)){
         qDebug()<<"File could'nt be opened for writing !";
     }
-
         //checking data has bytes
        if(data.size() > 0)
         //writing data to file
